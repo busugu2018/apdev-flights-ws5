@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:cluster="http://www.mulesoft.org/schema/mule/ee/cluster" xmlns:ws="http://www.mulesoft.org/schema/mule/ws" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:context="http://www.springframework.org/schema/context" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-current.xsd
+http://www.mulesoft.org/schema/mule/ws http://www.mulesoft.org/schema/mule/ws/current/mule-ws.xsd">
+	<http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="${http.port}" doc:name="HTTP Listener Configuration"/>
+	<context:property-placeholder location="flights-${env}.properties"/>
+	<http:request-config name="United_REST_HTTP_Request_Configuration" host="${united.host}" port="80" doc:name="HTTP Request Configuration"/>
+	<http:request-config name="American_HTTP_Request_Configuration" host="training-american-ws4-zi.us-e2.cloudhub.io" port="80" basePath="/api/" doc:name="HTTP Request Configuration">
+		<http:raml-api-configuration location="https://exchange2-asset-manager-kprod.s3.amazonaws.com/59d3e99c-abc5-4f61-9edf-d26a86ceb48e/a5b70097c8b72993f9a19a9cd250d736f541382ac68537a25eabca2e26fd5f54.zip?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=AKIAJ45WRYDRVE5W64XQ%2F20210325%2Fus-east-1%2Fs3%2Faws4_request&amp;X-Amz-Date=20210325T224235Z&amp;X-Amz-Expires=86400&amp;X-Amz-Signature=38ac9d43dd53ac486a49e58fb9f309e030f80c44091f139eebe52ab1db15044a&amp;X-Amz-SignedHeaders=host&amp;response-content-disposition=attachment%3B%20filename%3Damerican-flight-api-1.0.2-raml.zip"/>
+	</http:request-config>
+	<ws:consumer-config name="D_Web_Service_Consumer" wsdlLocation="http://mu.mulesoft-training.com/essentials/delta?wsdl" service="TicketServiceService" port="TicketServicePort" serviceAddress="http://mu.mulesoft-training.com/essentials/delta" doc:name="Web Service Consumer"/>
+	<configuration defaultExceptionStrategy-ref="implementationChoice_Exception_Strategy" doc:name="Configuration">
+		<http:config useTransportForUris="false"/>
+	</configuration>
+
+	<choice-exception-strategy name="implementationChoice_Exception_Strategy" >
+		<catch-exception-strategy when="#[exception.causeMatches('com.mulesoft.weave.*')]" doc:name="No Flights - DataWeave exception ">
+			<set-payload value="NO FLIGHTS to #[flowVars.code+  '\n'+ exception]" doc:name="Set Payload"/>
+			<set-property propertyName="http.status" value="400" doc:name="Property"/>
+			<logger level="INFO" doc:name="Logger"/>
+		</catch-exception-strategy>
+		<catch-exception-strategy doc:name="Unavailable data - all other exception">
+			<set-payload value="Data is Unavailable, try later #['\n' +exception]" doc:name="Set Payload"/>
+			<set-property propertyName="http.status" value="500" doc:name="Property"/>
+			<logger level="INFO" doc:name="Logger"/>
+		</catch-exception-strategy>
+	</choice-exception-strategy>
+
+</mule>
